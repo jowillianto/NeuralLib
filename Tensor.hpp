@@ -15,6 +15,11 @@ code an hopefully, create a functional machine learning algorithm*/
 #ifndef STD_TIME
 #define STD_TIME
 #include <ctime>
+#endif 
+
+#ifndef STD_VECTOR
+#define STD_VECTOR
+#include<vector>
 #endif
 
 //Abstraction Classes
@@ -67,56 +72,7 @@ struct TensorSize{
 };
 
 //Main Structure Classes Tensor for Matrices while Vector is for now Unused for no reason at all
-class Vector{
-    public:
-        Vector(const long& Size){
-            _VectorContainer_   = new float[Size];
-            _Size_              = Size;
-        }
-        Vector operator + (const Vector& Other){
-            if(_EqualVectorSize_(*this, Other)){
-                throw "Cannot add vector of different Sizes";
-                for(int i = 0; i < Other._Size_;i++){
-                    this -> _VectorContainer_[i] += Other._VectorContainer_[i];
-                }
-            }
-            return *this;
-        }
-        Vector operator - (const Vector& Other){
-            if(_EqualVectorSize_(*this, Other)){
-                throw "Cannot add vector of different Sizes";
-                for(int i = 0; i < Other._Size_;i++){
-                    this -> _VectorContainer_[i] -= Other._VectorContainer_[i];
-                }
-            }
-            return *this;
-        }
-        float operator * (const Vector& Other){
-            if(_EqualVectorSize_(*this, Other)){
-                throw "Cannot dot product vector of different Sizes";
-            }
-            float sum = 0;
-            for(int i = 0; i < Other._Size_; i++){
-                sum += this -> _VectorContainer_[i] * Other._VectorContainer_[i];
-            }
-            return sum;
-        }
-        ~Vector(){
-            delete _VectorContainer_;
-        }
-    private : 
-        float* _VectorContainer_;
-        long _Size_;
-
-        bool _EqualVectorSize_(const Vector& first, const Vector& second){
-            if(first._Size_ != second._Size_){
-                return false;
-            }
-            return true;
-        }
-};
-
-class Tensor{
+class Tensor{   
     public:
         Tensor(const TensorSize& Size){
             _TensorContainer_   = new float*[Size.height];
@@ -139,7 +95,7 @@ class Tensor{
         }
         
         //Operator Overloads
-        Tensor operator + (const Tensor& Other){
+        Tensor operator + (const Tensor& Other)const {
             if(Other._Size_ != this -> _Size_){
                 throw "Unequal Tensor Size. Addition Failure";
             }
@@ -150,7 +106,7 @@ class Tensor{
             }
             return *this;
         }
-        Tensor operator - (const Tensor& Other){
+        Tensor operator - (const Tensor& Other)const {
             if(Other._Size_ != this -> _Size_){
                 throw "Unequal Tensor Size. Addition Failure";
             }
@@ -161,7 +117,7 @@ class Tensor{
             }
             return *this;
         }
-        Tensor operator * (const Tensor& Other){
+        Tensor operator * (const Tensor& Other)const {
             if(this -> _Size_.width != Other._Size_.height){
                 throw "Cannot multiply matrix of conflicting size";
             }
@@ -176,6 +132,14 @@ class Tensor{
                 }
             }
             return newTensor;
+        }
+        Tensor operator * (const float& Other)const {
+            for(long i = 0; i < _Size_.height; i++){
+                for(long j = 0; j < _Size_.width; j++){
+                    _TensorContainer_[i][j] *= Other;
+                }
+            }
+            return *this;
         }
         Tensor& operator = (const Tensor& Other){
             //Delete the current stuff 
@@ -197,16 +161,30 @@ class Tensor{
             }
             return *this;
         }
-
+        
+        //Access Overloads
         float& operator [] (const TensorSize& Position){
             return _TensorContainer_[Position.height][Position.width];
         }
-
-        //basic functions
-        TensorSize size(){
+        
+        //Basic Functions
+        TensorSize size() const{
             return _Size_;
         }
-
+        float getValue(const TensorSize& Position) const{
+            return _TensorContainer_[Position.height][Position.width];
+        }
+        void resize(const TensorSize& NewSize){
+            for(long i = 0; i < _Size_.height; i++){
+                delete[] _TensorContainer_[i];
+            }
+            delete[] _TensorContainer_;
+            _TensorContainer_   = new float*[NewSize.height];
+            for(int i = 0; i < NewSize.height; i++){
+                _TensorContainer_[i]    = new float[NewSize.width];
+            }
+            _Size_  = NewSize;
+        }
         //Matrix Decomposition and Operation
         /*Tensor* singularValueDecomposition(){
             Tensor S    = Eye({1, 1});
@@ -254,7 +232,7 @@ class Tensor{
             _TensorContainer_   = NewTensorContainer;
             _Size_              = {_Size_.width, _Size_.height};
         }
-        Tensor rTranspose(){
+        Tensor rTranspose() const{
             Tensor newTensor({_Size_.width, _Size_.height});
             for(int i = 0; i < _Size_.width;i++){
                 for(int j = 0; j < _Size_.height;j++){
@@ -273,7 +251,7 @@ class Tensor{
 
         //Gradient Tracker
         /* Create a tensor with value difference of 0.01 for gradient calculation purposes */
-        Tensor gradTensor(const float& diff){
+        Tensor gradTensor(const float& diff) const{
             Tensor newTensor({_Size_});
             for(int i = 0;i < _Size_.height; i++){
                 for(int j = 0; j < _Size_.width; j++){
@@ -284,7 +262,7 @@ class Tensor{
         }
 
         /*Calculate the Average of a Tensor for Gradient Descent Calculation*/
-        Tensor avgTensor(){
+        Tensor avgTensor() const{
             Tensor average({_Size_.width, 1});
             for(int i = 0; i < _Size_.width; i++){
                 float sum = 0;
@@ -310,7 +288,7 @@ class Tensor{
 };
 
 //Tensor Initializer Class
-class Eye : public Tensor{
+class Eye       : public Tensor{
     public:
         Eye(const TensorSize &Size) : Tensor(Size){
             if(Size.height != Size.width){
@@ -326,8 +304,7 @@ class Eye : public Tensor{
             }
         }
 };
-
-class Ones : public Tensor{
+class Ones      : public Tensor{
     public: 
         Ones(const TensorSize &Size) : Tensor(Size){
             for(long i = 0; i < Size.height; i++){
@@ -337,8 +314,7 @@ class Ones : public Tensor{
             }
         }
 };
-
-class Zeros : public Tensor{
+class Zeros     : public Tensor{
     public: 
         Zeros(const TensorSize &Size) : Tensor(Size){
             for(int i = 0; i < Size.height; i++){
@@ -348,8 +324,7 @@ class Zeros : public Tensor{
             }
         }
 };
-
-class Random : public Tensor{
+class Random    : public Tensor{
     public: 
         Random(const TensorSize& Size) : Tensor(Size){
             for(long i = 0; i < Size.height; i++){
@@ -360,20 +335,47 @@ class Random : public Tensor{
             }
         }
 };
+class Fill      : public Tensor{
+    public: 
+        Fill(const TensorSize& Size,const float &Value) : Tensor(Size){
+            for(long i = 0; i < Size.height; i++){
+                for(long j = 0; j < Size.width; j++){
+                    _TensorContainer_[i][j] = Value;
+                }
+            }
+        }
+};
 
 //Tensor Functions, Functions Involving Tensors either to print or other stuff
-void printTensor(Tensor& Other){
+void print(const Tensor& Other){
     for(long i = 0; i < Other.size().height; i++){
         for(long j = 0; j < Other.size().width; j++){
-            std::cout<<Other[{i, j}]<<" ";
+            std::cout<<Other.getValue({i, j})<<" ";
         }
         std::cout<<std::endl;
     }
     std::cout<<std::endl;   
 }
-
-void printTensorSize(const TensorSize& Other){
+void print(const TensorSize& Other){
     std::cout<<"Height   : "<<Other.height<<std::endl;
     std::cout<<"Width    : "<<Other.width<<std::endl;
 }
-
+void print(const float& Other){
+    std::cout<<Other<<std::endl;
+}
+Tensor max(const Tensor& Input){
+    Tensor newTensor({Input.size().height, 2});
+    for(long i = 0; i < Input.size().height; i++){
+        float maxMarker = Input.getValue({i, 0});
+        long maxIndex = 0;
+        for(long j = 1; j < Input.size().width; j++){
+            if(maxMarker < Input.getValue({i, j})){
+                maxMarker = Input.getValue({i, j});
+                maxIndex  = j;
+            }
+        }
+        newTensor[{i, 0}] = maxMarker;
+        newTensor[{i, 1}] = maxIndex;
+    }
+    return newTensor;
+}
