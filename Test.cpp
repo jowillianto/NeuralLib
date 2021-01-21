@@ -1,38 +1,40 @@
 #include "NeuralLib.hpp"
 
-//Example Code here
+/*Example of Linear Neural Network with Unknown Model*/
 class LinearClassifier : public nl::Model{
     public:
-        LinearClassifier(const long& InputSize, const long&OutputSize, const long& NetworkDepth, const long& NetworkSize){
-            _Sequence_.push_back(new nl::Linear(InputSize, NetworkSize, true));
-            for(long i = 1; i < NetworkDepth - 1; i++){
-                _Sequence_.push_back(new nl::Linear(NetworkSize, NetworkSize, true));
+        LinearClassifier(const int& InputSize, const int& OutputSize, const int& NetworkWidth, const int& NetworkDepth){
+            _Sequence_.push_back(new nl::Linear(InputSize, NetworkWidth, true));
+            _Sequence_.push_back(new nl::Sigmoid);
+            for(int i = 1; i < NetworkDepth - 1; i++){
+                _Sequence_.push_back(new nl::Linear(NetworkDepth, NetworkDepth, true));
+                _Sequence_.push_back(new nl::Sigmoid);
             }
-            _Sequence_.push_back(new nl::Linear(NetworkSize, OutputSize, true));
+            _Sequence_.push_back(new nl::Linear(NetworkDepth, OutputSize, true));
         }
         nl::Tensor forward(const nl::Tensor& Input){
             nl::Tensor Output = _Sequence_[0] -> forward(Input);
-            for(long i = 1; i < _Sequence_.size(); i++){
-                Output  = _Sequence_[i] -> forward(Output);
+            nl::print(Output);
+            std::cout<<std::endl;
+            for(int i = 1; i < _Sequence_.size(); i++){
+                Output = _Sequence_[i] -> forward(Output);
+                nl::print(Output);
+                std::cout<<std::endl;
             }
-            return nl::max(Output);
+            return Output;
         }
         ~LinearClassifier(){
             for(auto i = _Sequence_.begin(); i < _Sequence_.end(); i++){
-                delete *i;
+                delete (*i);
             }
         }
     private:
-        std::vector <nl::NetworkFunc*> _Sequence_;
+        std::vector <nl::LinearFunc*> _Sequence_;
 };
 
 int main(){
-    nl::Tensor newTensor    = nl::Zeros({64, 3});
-    LinearClassifier model(3, 10, 256, 20);
-    for(long i = 0; i < 1000; i++){
-        model.forward(newTensor);
-        std::cout<<i<<std::endl;
-    }
-    nl::Tensor Output = model.forward(newTensor);
-    print(Output);
+    LinearClassifier func(10, 2, 20, 20);
+    nl::Tensor Input    = nl::Zeros({1, 10});
+    func.forward(Input);
+    std::cin.get();
 }

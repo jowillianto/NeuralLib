@@ -15,15 +15,18 @@ class Model{
 };
 
 //Template for all class (You can Declare a Sequential with this interface with a vector)
-class NetworkFunc{
+class LinearFunc{
     public: 
         virtual Tensor forward(const Tensor& Input) = 0;
 };
-
+class ConvFunc{
+    public: 
+        virtual std::vector<std::vector<Tensor> > forward(const std::vector<std::vector<Tensor> >& Input) = 0;
+};
 //Standard NN Network 
-class Linear : public NetworkFunc{
+class Linear : public LinearFunc{
     public:
-        Linear(const long& Input, const long& Output, const bool& Bias) : _Weight_(Fill({Input, Output}, 0.01)), _Bias_(Fill({Output, 1}, 0.01)){
+        Linear(const long& Input, const long& Output, const bool& Bias = true) : _Weight_(Random({Input, Output})), _Bias_(Random({Input, Output})){
             //Weigth initialized of size m x n : Input x Output. If there are 7 layers of Input, then the
             //Resulting Matrix will be 7 * Output
             _UseBias_   = Bias;
@@ -60,65 +63,78 @@ class Linear : public NetworkFunc{
         }
 };
 
+
 //Convolutional Network
-class Conv2D : public NetworkFunc{
+class Conv1D : public ConvFunc{};
+class Conv2D : public ConvFunc{
     public:
-        Conv2D(const long& InputChannel, const long& OutputChannel, const long& Stride, const long& KernelSize){
-            _InputSize_     = InputChannel;
-            _OutputSize_    = OutputChannel;
+        Conv2D(const long& InputChannel, const long& OutputChannel, const long& KernelSize, const long& Stride){
+            _InputChannel_  = InputChannel;
+            _OutputChannel_ = OutputChannel;
+            _KernelSize_    = KernelSize;
             _Stride_        = Stride;
-            
-            //Initialize Kernel
-            for(int i = 0;i < OutputChannel; i++){
-                _Kernel_.push_back(Random({KernelSize, KernelSize}));
+            for(long i = 0; i < _OutputChannel_; i++){
+                _Kernel_.push_back(Ones({_KernelSize_, _KernelSize_}));
             }
         }
-
-        std::vector<Tensor> forward(const std::vector<Tensor> &Input){
-            //slide kernel over tensor
-            //Check for incompatibility of the tensor
-            if(Input.size() != _InputSize_){
-                throw "The input tensor does not match the neural network requirement";
+        std::vector<std::vector<Tensor> > forward(const std::vector<std::vector<Tensor> >& Input){
+            std::vector<std::vector<Tensor> > Output; 
+            //main Check to throw Erros
+            if(Input[0].size() != _InputChannel_){
+                throw "Incompatible Input Channel Size";
             }
-
-            /*find the kernel stuff over here*/
-            TensorSize Size         = Input[0].size();
-            long Kernel             = _Kernel_[0].size().width;
-            TensorSize outputSize   = {(Size.height - Kernel) / _Stride_, (Size.width - Kernel) / _Stride_};
-            if((Size.height - Kernel) / _Stride_ != outputSize.height || (Size.width - Kernel) / _Stride_ != outputSize.width){
-                throw "Stride cannot match tensor and thereofore cannot give a good output";
-            }
-            std::vector<Tensor> Output;
-
-            for(auto ptr = _Kernel_.begin();ptr != _Kernel_.end(); ptr++){
-                Tensor Channel({outputSize});
-                for(long i = 0; i < Size.height - Kernel; i+=_Stride_){
-                    for(long j = 0; j < Size.width - Kernel; j+=_Stride_){
-                        float sum = 0;
-                        for(long k = 0; k < Kernel; k++){
-                            for(long l = 0; l < Kernel; l++){
-                                TensorSize Position = {i + k, j + l};
-                                for(auto ptr2 = Input.begin(); ptr2 < Input.end(); ptr2++){
-                                    sum += ptr2 -> getValue(Position) * (*ptr)[{k, l}];
+            TensorSize inputSize    = Input[0][0].size();
+            TensorSize outputSize   = {(inputSize.height - _KernelSize_) / _Stride_, (inputSize.width - _KernelSize_) / _Stride_};
+            for(auto i = Input.begin(); i != Input.end(); i++){
+                std::vector<Tensor> pushChannel;
+                for(auto j = _Kernel_.begin(); j != _Kernel_.end(); j++){
+                    Tensor pushTensor({outputSize});
+                    long x = 0, y = 0;
+                    for(long k = 0; k < inputSize.height; k+=_Stride_){
+                        for(long l = 0; l < inputSize.width; l+= _Stride_){
+                            float sum = 0;
+                            for(long m = 0; m < _KernelSize_; m++){
+                                for(long n = 0; n < _KernelSize_; n++){
+                                    TensorSize position = {k + l, m + n};
+                                    for(auto o = i -> begin(); o != i -> end(); o++){
+                                        sum += o -> getValue(position) * j -> getValue({m, n});
+                                    }
                                 }
                             }
+                            pushTensor[{x, y}] = sum;
+                            x+=1; y+=1;
                         }
-                        Output.push_back(Channel);
                     }
+                    pushChannel.push_back(pushTensor);
                 }
+                Output.push_back(pushChannel);
             }
             return Output;
         }
-    private:
+    private: 
         std::vector <Tensor> _Kernel_;
-        long _Stride_;       
-        long _InputSize_;
-        long _OutputSize_;
+        long _InputChannel_;
+        long _OutputChannel_;
+        long _KernelSize_;
+        long _Stride_;
 };
+class Conv3D : public ConvFunc{};
+
+//Pooling Layers
+class MaxPool1D : public ConvFunc{};
+class MaxPool2D : public ConvFunc{};
+class MaxPool3D : public ConvFunc{};
+class MinPool1D : public ConvFunc{};
+class MinPool2D : public ConvFunc{};
+class MinPool3D : public ConvFunc{};
+class AvgPool1D : public ConvFunc{};
+class AvgPool2D : public ConvFunc{};
+class AvgPool3D : public ConvFunc{};
+
 
 //Activation Functions
-//Create Base Class for Activation Functions
-class ActivationFunction : public NetworkFunc{
+//Create Base Class for Activation Functions. Never use the class ActivationFunction, use network func
+class ActivationFunction : public LinearFunc, public ConvFunc{
     public:
         Tensor forward(const Tensor& Input){
             Tensor newTensor(Input.size());
@@ -129,6 +145,23 @@ class ActivationFunction : public NetworkFunc{
             }
             return newTensor;
         } 
+        std::vector<std::vector<Tensor> > forward(const std::vector<std::vector<Tensor> >& Input){
+            std::vector<std::vector<Tensor> > Output;
+            for(long i = 0; i < Input.size(); i++){
+                std::vector<Tensor> pushChannel;
+                for(long j = 0; j < Input[i].size(); j++){
+                    Tensor pushTensor({Input[i][j].size()});
+                    for(long k = 0; k < Input[i][j].size().height; k++){
+                        for(long l = 0; l < Input[i][j].size().width; l++){
+                            pushTensor[{k, l}] = func(Input[i][j].getValue({k, l}));
+                        }
+                    }
+                    pushChannel.push_back(pushTensor);
+                }
+                Output.push_back(pushChannel);
+            }
+            return Output;
+        }
         virtual float func(const float& Input) = 0;
 };
 class ReLU : public ActivationFunction{
@@ -142,6 +175,47 @@ class ReLU : public ActivationFunction{
             }
         }
 };
+class LeakyRelu : public ActivationFunction{
+    public:
+        float func(const float& Input){
+            if(Input > 0){
+                return Input;
+            }
+            else{
+                return _Gradient_ * Input;
+            }
+        }
+    private:
+        float _Gradient_;
+};
+class HardTanh : public ActivationFunction{
+    public:
+        float func(const float& Input){
+            if(Input > 1){
+                return 1;
+            }
+            else if(Input < -1){
+                return -1;
+            }
+            else{
+                return Input;
+            }
+        }
+};
+class HardSigmoid : public ActivationFunction{
+    public: 
+        float func(const float& Input){
+            if(Input > 3){
+                return 1;
+            }
+            else if(Input < -3){
+                return 0;
+            }
+            else{
+                return Input / 6 + 0.5;
+            }
+        }
+};
 class Sigmoid : public ActivationFunction{
     public:
         float func(const float& Input){
@@ -152,5 +226,39 @@ class Tanh : public ActivationFunction{
     public:
         float func(const float& Input){
             return tanh(Input);
+        }
+};
+class Softmax : public LinearFunc{
+    public:
+        Tensor forward(const Tensor& Input){
+            Tensor newTensor(Input.size());
+            //Calculate Softmax Sum
+            for(long i = 0; i < Input.size().height; i++){
+                float sum = 0;
+                for(long j = 0; j < Input.size().width; j++){
+                    sum += exp(Input.getValue({i, j}));
+                }
+                for(long j = 0; j < Input.size().width; j++){
+                    newTensor[{i, j}] = exp(Input.getValue({i, j})) / sum;
+                }
+            }
+            return newTensor;
+        }
+};
+class LogSoftMax : public LinearFunc{
+    public:
+        Tensor forward(const Tensor& Input){
+            Tensor newTensor(Input.size());
+            //Calculate Softmax Sum
+            for(long i = 0; i < Input.size().height; i++){
+                float sum = 0;
+                for(long j = 0; j < Input.size().width; j++){
+                    sum += exp(Input.getValue({i, j}));
+                }
+                for(long j = 0; j < Input.size().width; j++){
+                    newTensor[{i, j}] = log(exp(Input.getValue({i, j})) / sum);
+                }
+            }
+            return newTensor;
         }
 };

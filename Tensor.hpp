@@ -54,24 +54,22 @@ struct TensorSize{
         this -> width   = Other.width;
         return *this;
     }
-    
     bool operator == (const TensorSize &Other) const {
         if(this -> width != Other.width || this -> height != Other.height){
             return false;
         }
         return true;
     }
-    
     bool operator != (const TensorSize &Other) const {
         if(this -> width != Other.width || this -> height != Other.height){
             return true;
         }
         return false;
     }
-
 };
 
-//Main Structure Classes Tensor for Matrices while Vector is for now Unused for no reason at all
+//MainClass Tensor to be used as the input matrix in to a neural network. The main class tensor provides 
+//features 
 class Tensor{   
     public:
         Tensor(const TensorSize& Size){
@@ -161,8 +159,6 @@ class Tensor{
             }
             return *this;
         }
-        
-        //Access Overloads
         float& operator [] (const TensorSize& Position){
             return _TensorContainer_[Position.height][Position.width];
         }
@@ -185,7 +181,6 @@ class Tensor{
             }
             _Size_  = NewSize;
         }
-        //Matrix Decomposition and Operation
         /*Tensor* singularValueDecomposition(){
             Tensor S    = Eye({1, 1});
             Tensor V    = Eye({1, 1});
@@ -248,7 +243,6 @@ class Tensor{
         bool symmetric();
 
         //Null Rank and stuff
-
         //Gradient Tracker
         /* Create a tensor with value difference of 0.01 for gradient calculation purposes */
         Tensor gradTensor(const float& diff) const{
@@ -288,7 +282,7 @@ class Tensor{
 };
 
 //Tensor Initializer Class
-class Eye       : public Tensor{
+class Eye : public Tensor{
     public:
         Eye(const TensorSize &Size) : Tensor(Size){
             if(Size.height != Size.width){
@@ -304,7 +298,7 @@ class Eye       : public Tensor{
             }
         }
 };
-class Ones      : public Tensor{
+class Ones : public Tensor{
     public: 
         Ones(const TensorSize &Size) : Tensor(Size){
             for(long i = 0; i < Size.height; i++){
@@ -314,7 +308,7 @@ class Ones      : public Tensor{
             }
         }
 };
-class Zeros     : public Tensor{
+class Zeros : public Tensor{
     public: 
         Zeros(const TensorSize &Size) : Tensor(Size){
             for(int i = 0; i < Size.height; i++){
@@ -324,7 +318,7 @@ class Zeros     : public Tensor{
             }
         }
 };
-class Random    : public Tensor{
+class Random : public Tensor{
     public: 
         Random(const TensorSize& Size) : Tensor(Size){
             for(long i = 0; i < Size.height; i++){
@@ -335,7 +329,7 @@ class Random    : public Tensor{
             }
         }
 };
-class Fill      : public Tensor{
+class Fill : public Tensor{
     public: 
         Fill(const TensorSize& Size,const float &Value) : Tensor(Size){
             for(long i = 0; i < Size.height; i++){
@@ -379,3 +373,19 @@ Tensor max(const Tensor& Input){
     }
     return newTensor;
 }
+Tensor flatten(const std::vector <std::vector<Tensor> >& Input){
+    Tensor newTensor({Input.size(), Input[0].size() * Input[0][0].size().total()});
+    long count = 0;
+    for(int i = 0; i < Input.size(); i++){
+        for(auto j = Input[i].begin(); j < Input[i].end(); i++){
+            for(long k = 0; k < j -> size().height; ++k){
+                for(long l = 0; l < j -> size().width; ++l){
+                    newTensor[{i, count}]  = j -> getValue({k, l});
+                    ++count;
+                }
+            }
+        }
+    }
+    return newTensor;
+}
+
